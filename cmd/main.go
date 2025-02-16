@@ -2,11 +2,25 @@ package main
 
 import (
 	"fmt"
-	"github.com/mikeyQwn/doro/lib"
+	"log"
 	"time"
+
+	"github.com/mikeyQwn/doro/lib"
+	"github.com/mikeyQwn/doro/lib/terminal"
 )
 
 func main() {
+	res, err := terminal.IntoRaw()
+	if err != nil {
+		log.Fatal(err)
+	}
+	k, err := terminal.CaptupreKey()
+	if k == terminal.KEY_ARROW_LEFT {
+		fmt.Println("LEFT")
+	}
+	res()
+	log.Fatal()
+
 	fmt.Print("Doing stuff... ")
 	spinnerFrames := []string{
 		"\\ Here",
