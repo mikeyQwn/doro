@@ -3,9 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
+	"strings"
 
-	"github.com/mikeyQwn/doro/lib"
 	"github.com/mikeyQwn/doro/lib/terminal"
 )
 
@@ -14,31 +13,22 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	k, err := terminal.CaptupreKey()
-	if k == terminal.KEY_ARROW_LEFT {
-		fmt.Println("LEFT")
-	}
-	res()
-	log.Fatal()
+	defer res()
 
-	fmt.Print("Doing stuff... ")
-	spinnerFrames := []string{
-		"\\ Here",
-		"| We",
-		"/ Go",
-		"- ...",
-		"\\ Almost",
-		"| Done",
-		"/ ...",
-		"- ...",
-	}
+	boldCenteredCRLF := terminal.NewFormatBuilder().
+		Bold().
+		Center().
+		CRLF()
 
-	a := lib.NewAnimation()
+	title := "Doro the pomodoro timer"
 
-	for {
-		for _, c := range spinnerFrames {
-			fmt.Print(a.NextFrame(c))
-			time.Sleep(time.Second)
-		}
-	}
+	titleHorizontalBorder := fmt.Sprintf("+%s+", strings.Repeat("-", len(title)))
+
+	msg := boldCenteredCRLF.FormatLines(
+		titleHorizontalBorder,
+		"|"+title+"|",
+		titleHorizontalBorder,
+	)
+
+	fmt.Print(msg)
 }
