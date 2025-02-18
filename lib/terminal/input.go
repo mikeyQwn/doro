@@ -1,13 +1,14 @@
 package terminal
 
 import (
-	"context"
-	"fmt"
 	"os"
 )
 
+// Captures a single keypress in raw mode
+// Returns an associated key or error if read from stdin fails
 func CaptupreKey() (Key, error) {
 	buf := [4]byte{0}
+
 	n, err := os.Stdin.Read(buf[:])
 	if err != nil {
 		return KEY_UNKNOWN, err
@@ -19,17 +20,5 @@ func CaptupreKey() (Key, error) {
 		k += mask
 	}
 
-	fmt.Printf("RUNE IS: \"%c\"", rune(k))
-
-	fmt.Println(buf[:n], k, KEY_ARROW_LEFT)
-
 	return k, nil
-}
-
-func CaptureInputStream(ctx context.Context, n int) <-chan Key {
-	c := make(chan Key, n)
-
-	// TODO: implement me
-
-	return c
 }
