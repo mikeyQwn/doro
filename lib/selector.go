@@ -33,7 +33,7 @@ func (s *Selector[T]) Next() T {
 
 func (s *Selector[T]) Prev() T {
 	s.currentIdx -= 1
-	if s.currentIdx <= 0 {
+	if s.currentIdx < 0 {
 		s.currentIdx = len(s.values) - 1
 	}
 

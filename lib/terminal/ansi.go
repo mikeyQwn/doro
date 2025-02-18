@@ -33,7 +33,21 @@ func Center(s string) string {
 	}
 	printableCount := countPrintable(s)
 	paddingLen := (w - printableCount) / 2
+	if paddingLen <= 0 {
+		return s
+	}
+
 	return strings.Repeat(" ", paddingLen) + s
+}
+
+// Adds \r to the end of the string
+func CR(s string) string {
+	return s + ESCAPE_CARRIAGE_RETURN
+}
+
+// Adds \n to the end of the string
+func LF(s string) string {
+	return s + ESCAPE_LINE_FEED
 }
 
 // Adds \r\n to the end of the string
@@ -79,7 +93,8 @@ func countPrintable(s string) int {
 type FormatBuilder struct {
 	center bool
 	bold   bool
-	crlf   bool
+	cr     bool
+	lf     bool
 }
 
 // Instantiates `FormatBuilder`
@@ -100,9 +115,22 @@ func (f FormatBuilder) Center() FormatBuilder {
 	return f
 }
 
+// Makes the otput of the returned formatter escaped by \r
+func (f FormatBuilder) CR() FormatBuilder {
+	f.cr = true
+	return f
+}
+
+// Makes the otput of the returned formatter escaped by \n
+func (f FormatBuilder) LF() FormatBuilder {
+	f.lf = true
+	return f
+}
+
 // Makes the otput of the returned formatter escaped by \r\n
 func (f FormatBuilder) CRLF() FormatBuilder {
-	f.crlf = true
+	f.cr = true
+	f.lf = true
 	return f
 }
 
@@ -114,8 +142,12 @@ func (f FormatBuilder) Format(s string) string {
 	if f.bold {
 		s = Bold(s)
 	}
-	if f.crlf {
+	if f.cr && f.lf {
 		s = CRLF(s)
+	} else if f.cr {
+		s = CR(s)
+	} else if f.lf {
+		s = LF(s)
 	}
 	return s
 }
