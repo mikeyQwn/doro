@@ -1,6 +1,7 @@
 package bin
 
 import (
+	"io"
 	"os"
 
 	"github.com/mikeyQwn/doro/lib"
@@ -9,6 +10,7 @@ import (
 
 type AppState struct {
 	w   *lib.BatchWriter
+	wr  io.Writer
 	ks  terminal.KeyStream
 	cfg Config
 }
@@ -16,6 +18,7 @@ type AppState struct {
 func NewAppState(ks terminal.KeyStream) *AppState {
 	return &AppState{
 		w:   lib.NewBatchWriter(os.Stdout),
+		wr:  os.Stdout,
 		ks:  ks,
 		cfg: Config{},
 	}

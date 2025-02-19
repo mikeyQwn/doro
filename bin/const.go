@@ -26,11 +26,6 @@ var (
 
 	pressSpaceToStartMsg = "Press " + terminal.Bold("[space]") + " to start!\n"
 	horizontalLineMsg    = "--------------\n"
-	initMsg              = fmtBoldCenteredCRLF.FormatLines(
-		titleHorizontalBorder,
-		"|"+title+"|",
-		titleHorizontalBorder,
-	)
 )
 
 var durations = []time.Duration{

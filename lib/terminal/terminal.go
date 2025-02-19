@@ -24,7 +24,7 @@ func IntoRaw() (TerminalRestoreFunc, error) {
 	return restoreFn, nil
 }
 
-func GetTerminalDimensions() (width int, height int, err error) {
+func GetDimensions() (width int, height int, err error) {
 	return term.GetSize(stdoutFd())
 }
 

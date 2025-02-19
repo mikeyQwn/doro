@@ -31,7 +31,7 @@ func Bold(s string) string {
 // Pads spaces to the string to fit it in the center of the screen if it is able
 // Returns the initial string if can't get the size of the terminal
 func Center(s string) string {
-	w, _, err := GetTerminalDimensions()
+	w, _, err := GetDimensions()
 	if err != nil {
 		return s
 	}

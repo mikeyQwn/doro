@@ -3,6 +3,7 @@ package bin
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -27,10 +28,21 @@ func Run() {
 		HandleCtrlC(Exit)
 
 	s := NewAppState(ks)
+
+	widgets := make([]*ui.Widget, 0, 16)
+	widgets = append(widgets, s.InitMsg())
+
+	for _, widget := range s.ConfigSelectors() {
+		widgets = append(widgets, widget)
+	}
+	widgets = append(widgets, s.WaitForSpace())
+
+	for _, widget := range widgets {
+		CheckErr(widget.Run())
+		Unwrap(io.WriteString(s.wr, terminal.DownLF(1)))
+	}
+
 	stages := []func(){
-		s.PrintInitMsg,
-		s.FillMissingConfigFields,
-		s.WaitForSpaceToStart,
 		s.RunPomodoros,
 	}
 
@@ -40,25 +52,65 @@ func Run() {
 	}
 }
 
-func (s *AppState) PrintInitMsg() {
-	s.w.WriteFmt(initMsg, fmtCRLF)
+func (s *AppState) InitMsg() *ui.Widget {
+	return ui.NewWidget(func(f *ui.Formatter) []string {
+		return []string{
+			f.Center(terminal.Bold(titleHorizontalBorder)),
+			f.Center(terminal.Bold("|" + title + "|")),
+			f.Center(terminal.Bold(titleHorizontalBorder)),
+		}
+	}).WithWriter(s.wr)
 }
 
-func (s *AppState) FillMissingConfigFields() {
-	for _, selector := range s.cfg.GetMissingSelectors() {
-		s.w.WriteFmt(selector.Label, fmtCenteredCRLF)
-		*selector.ConfigRef = Unwrap(
-			ui.RunSelector(selector.Selector, s.ks, lib.FormatDurationMinPrec),
-		)
-		s.w.WriteString(terminal.Down(2)).
-			WriteString(terminal.ESCAPE_ERASE_RETURN)
+func (s *AppState) ConfigSelectors() []*ui.Widget {
+	selectors := s.cfg.GetMissingSelectors()
+	widgets := make([]*ui.Widget, 0, len(selectors))
+
+	for _, selector := range selectors {
+		w := s.ConfigSelector(selector)
+		widgets = append(widgets, w)
 	}
 
+	return widgets
 }
 
-func (s *AppState) WaitForSpaceToStart() {
-	s.w.WriteFmt(pressSpaceToStartMsg, fmtCenteredCRLF)
-	s.ks.WaitKey(terminal.KEY_SPACE)
+func (s *AppState) ConfigSelector(selector ConfigSelector) *ui.Widget {
+	sel := selector.Selector
+	done := false
+
+	return ui.NewWidget(func(f *ui.Formatter) []string {
+		val := sel.Curr()
+
+		if done {
+			*selector.ConfigRef = val
+			return nil
+		}
+
+		msg := fmt.Sprintf("< %s >", lib.FormatDurationMinPrec(val))
+
+		return []string{
+			f.Center(selector.Label),
+			f.Center(msg),
+		}
+	}).EnableKeyHandling(s.ks).
+		AddKeyHandler(func(k terminal.Key) { sel.Prev() }, terminal.KEY_ARROW_LEFT).
+		AddKeyHandler(func(k terminal.Key) { sel.Next() }, terminal.KEY_ARROW_RIGHT).
+		AddKeyHandler(func(k terminal.Key) { done = true }, terminal.KEY_ENTER)
+}
+
+func (s *AppState) WaitForSpace() *ui.Widget {
+	done := false
+	return ui.NewWidget(func(f *ui.Formatter) []string {
+		if done {
+			return nil
+		}
+
+		return []string{
+			f.Center(pressSpaceToStartMsg),
+		}
+	}).EnableKeyHandling(s.ks).
+		AddKeyHandler(func(k terminal.Key) { done = true }, terminal.KEY_SPACE).
+		WithWriter(s.wr)
 }
 
 func (s *AppState) RunPomodoros() {
