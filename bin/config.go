@@ -18,7 +18,7 @@ type Config struct {
 	longBreakDuration   time.Duration
 }
 
-func NewConfigSelectors(c *Config) []ConfigSelector {
+func (c *Config) GetMissingSelectors() []ConfigSelector {
 	return []ConfigSelector{
 		ConfigSelector{
 			Label:     focusedDurationLabel,

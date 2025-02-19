@@ -3,83 +3,93 @@ package bin
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
+	"github.com/mikeyQwn/doro/lib"
 	"github.com/mikeyQwn/doro/lib/terminal"
 	"github.com/mikeyQwn/doro/lib/ui"
 )
 
-func durationToMinuteStirng(d time.Duration) string {
-	return fmt.Sprintf("%dm", int(d.Minutes()))
-}
-
-func unwrap[T any](res T, err error) T {
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return res
-}
-
-func unwrap2[T any, U any](a T, b U, err error) (T, U) {
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return a, b
-}
-
+// Runs the pomodoro application
+// Tranforms terminal into raw mode, executes the app
+// Returns the terminal to it's original state before returning
 func Run() {
-	c := Config{}
-	selectors := NewConfigSelectors(&c)
+	keyStreamCtx := context.Background()
 
-	fmt.Print(initMsg)
+	// Transform into raw mode and make sure to restore original state
+	restore := Unwrap(terminal.IntoRaw())
+	defer restore()
+	AddOnExit(func() { restore() })
 
-	fmt.Print(terminal.ESCAPE_CR_LF)
-	for _, s := range selectors {
-		var shouldExit bool
+	ks := terminal.
+		StdinIntoStream(keyStreamCtx, keyStreamBuffsize).
+		HandleCtrlC(Exit)
 
-		fmt.Print(centeredCRLF.Format(s.Label))
-		*s.ConfigRef, shouldExit = unwrap2(ui.RunSelector(s.Selector, durationToMinuteStirng))
-		if shouldExit {
-			return
-		}
-
-		fmt.Println(terminal.ESCAPE_CR_LF)
-
+	s := NewAppState(ks)
+	stages := []func(){
+		s.PrintInitMsg,
+		s.FillMissingConfigFields,
+		s.WaitForSpaceToStart,
+		s.RunPomodoros,
 	}
 
-	fmt.Println(centeredCRLF.Format("Press " + terminal.Bold("[space]") + " to start!"))
-	if unwrap(ui.WaitKey(terminal.KEY_SPACE)) {
-		return
+	for _, stageFn := range stages {
+		stageFn()
+		CheckErr(s.w.Done())
+	}
+}
+
+func (s *AppState) PrintInitMsg() {
+	s.w.WriteFmt(initMsg, fmtCRLF)
+}
+
+func (s *AppState) FillMissingConfigFields() {
+	for _, selector := range s.cfg.GetMissingSelectors() {
+		s.w.WriteFmt(selector.Label, fmtCenteredCRLF)
+		*selector.ConfigRef = Unwrap(
+			ui.RunSelector(selector.Selector, s.ks, lib.FormatDurationMinPrec),
+		)
+		s.w.WriteString(terminal.Down(2)).
+			WriteString(terminal.ESCAPE_ERASE_RETURN)
 	}
 
-	keyStream := terminal.StdinIntoStream(context.Background(), 16)
+}
 
-	fmt.Println(centeredCRLF.Format("--------------"))
+func (s *AppState) WaitForSpaceToStart() {
+	s.w.WriteFmt(pressSpaceToStartMsg, fmtCenteredCRLF)
+	s.ks.WaitKey(terminal.KEY_SPACE)
+}
+
+func (s *AppState) RunPomodoros() {
+	s.w.WriteFmt(horizontalLineMsg, fmtCenteredCRLF)
+
 	for i := 1; ; i++ {
-		fmt.Println(centeredCRLF.Format(fmt.Sprintf("Pomodoro %d", i)))
-		if spawnTimer(keyStream, "Focused work", c.focusedWorkDuration) {
-			return
-		}
-		fmt.Print(terminal.ESCAPE_CARRIAGE_RETURN + terminal.ESCAPE_CR_LF + terminal.ESCAPE_CR_LF + terminal.ESCAPE_ERASE_LINE)
+		s.w.WriteFmt(fmt.Sprintf(pomodoroMsgTemplate, i), fmtCenteredCRLF)
 
-		if (i%4 != 0) && spawnTimer(keyStream, "Short break", c.breakDuration) {
+		if spawnTimer(s.ks, focusedWorkLabel, s.cfg.focusedWorkDuration) {
 			return
 		}
-		if (i%4 == 0) && spawnTimer(keyStream, "Long break", c.longBreakDuration) {
+
+		s.w.WriteString(terminal.Down(2)).
+			WriteString(terminal.ESCAPE_ERASE_RETURN)
+
+		if (i%4 != 0) && spawnTimer(s.ks, shortBreakLabel, s.cfg.breakDuration) {
 			return
 		}
-		fmt.Print(strings.Repeat(terminal.ESCAPE_CR_LF, 2))
-		fmt.Print(terminal.ESCAPE_ERASE_LINE + terminal.ESCAPE_CARRIAGE_RETURN)
+
+		if (i%4 == 0) && spawnTimer(s.ks, longBreakLabel, s.cfg.longBreakDuration) {
+			return
+		}
+
+		s.w.WriteString(terminal.Down(2)).
+			WriteString(terminal.ESCAPE_ERASE_RETURN)
 	}
 }
 
 func spawnTimer(keyStream <-chan terminal.Key, label string, total time.Duration) bool {
 	fmt.Print(strings.Repeat(terminal.ESCAPE_CR_LF, 2))
-	fmt.Println(centeredCRLF.Format("Press " + terminal.Bold("[space]") + " to pause"))
+	fmt.Println(fmtCenteredCRLF.Format("Press " + terminal.Bold("[space]") + " to pause"))
 	fmt.Print(terminal.Up(4))
 
 	start := time.Now()
@@ -89,9 +99,7 @@ func spawnTimer(keyStream <-chan terminal.Key, label string, total time.Duration
 	for {
 		select {
 		case k := <-keyStream:
-			if k == terminal.KEY_CTRL_C {
-				return true
-			}
+			_ = k
 		case <-time.After(time.Second * 1):
 			if time.Now().Sub(start) > total {
 				fmt.Print(formatProgress(label, total, start, addSpare))
@@ -112,7 +120,7 @@ func formatProgress(label string, total time.Duration, start time.Time, addSpare
 		formatProgressBar(elapsedMin/totalMin, 25, addSpare),
 		int(elapsedMin),
 		int(totalMin))
-	return centered.Format(msg)
+	return fmtCentered.Format(msg)
 }
 
 func formatProgressBar(completion float64, width uint, addSpare bool) string {

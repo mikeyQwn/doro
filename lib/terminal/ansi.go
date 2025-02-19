@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"unicode"
 )
@@ -13,10 +14,13 @@ const (
 	ESCAPE_UP_LINE       = "\033[A"
 	ESCAPE_UP_START_LINE = "\033[F"
 
+	ESCAPE_RED = "\033[31m"
+
 	ESCAPE_CARRIAGE_RETURN = "\r"
 	ESCAPE_LINE_FEED       = "\n"
 
-	ESCAPE_CR_LF = ESCAPE_CARRIAGE_RETURN + ESCAPE_LINE_FEED
+	ESCAPE_ERASE_RETURN = ESCAPE_ERASE_LINE + ESCAPE_CARRIAGE_RETURN
+	ESCAPE_CR_LF        = ESCAPE_CARRIAGE_RETURN + ESCAPE_LINE_FEED
 )
 
 // Wraps a string in ANSI escape that makes it Bold and resets afterwards
@@ -63,6 +67,11 @@ func Up(n uint) string {
 // Returns ANSI escape that moves cursor `n` lines down
 func Down(n uint) string {
 	return fmt.Sprintf("\033[%dB", n)
+}
+
+// Returns ANSI escape that moves cursor `n` lines down using \n
+func DownLF(n uint) string {
+	return strings.Repeat(ESCAPE_LINE_FEED, int(n))
 }
 
 func countPrintable(s string) int {
@@ -150,6 +159,12 @@ func (f FormatBuilder) Format(s string) string {
 		s = LF(s)
 	}
 	return s
+}
+
+// Formats a string and writes it to io.Writer
+func (f FormatBuilder) WriteTo(s string, w io.Writer) (int, error) {
+	s = f.Format(s)
+	return w.Write([]byte(s))
 }
 
 // Apllies the formatter to each individual line separately

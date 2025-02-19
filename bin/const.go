@@ -12,13 +12,21 @@ import (
 const (
 	title                  = " Doro the pomodoro timer "
 	focusedDurationLabel   = "Select focused work duration"
+	focusedWorkLabel       = "Focused work"
 	breakDurationLabel     = "Select break duration"
+	shortBreakLabel        = "Short break"
 	longBreakDurationLabel = "Select long break duration"
+	longBreakLabel         = "Long break"
+
+	pomodoroMsgTemplate = "Pomodoro %d"
 )
 
 var (
 	titleHorizontalBorder = fmt.Sprintf("+%s+", strings.Repeat("-", len(title)))
-	initMsg               = boldCenteredCRLF.FormatLines(
+
+	pressSpaceToStartMsg = "Press " + terminal.Bold("[space]") + " to start!\n"
+	horizontalLineMsg    = "--------------\n"
+	initMsg              = fmtBoldCenteredCRLF.FormatLines(
 		titleHorizontalBorder,
 		"|"+title+"|",
 		titleHorizontalBorder,
@@ -52,10 +60,14 @@ var (
 	longBreakDurationSelector = lib.NewSelector(durations, longBreakDurationOffs)
 )
 
-var centered = terminal.NewFormatBuilder().
-	Center()
+var (
+	fmtDefault          = terminal.NewFormatBuilder()
+	fmtCRLF             = fmtDefault.CRLF()
+	fmtCentered         = fmtDefault.Center()
+	fmtCenteredCRLF     = fmtCentered.CRLF()
+	fmtBoldCenteredCRLF = fmtCenteredCRLF.Bold()
+)
 
-var centeredCRLF = centered.
-	CRLF()
-
-var boldCenteredCRLF = centeredCRLF.Bold()
+var (
+	keyStreamBuffsize = 16
+)

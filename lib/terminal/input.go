@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+type KeyStream <-chan Key
+
 // Captures a single keypress in raw mode, blocking the goroutine
 // Returns an associated key or error if read from stdin fails
 func CaptupreKey() (Key, error) {
@@ -33,7 +35,7 @@ var stdinLock sync.Mutex
 //
 // Note that even after the context is cancelled, the stream would process one more key
 // before closing
-func StdinIntoStream(ctx context.Context, n int) <-chan Key {
+func StdinIntoStream(ctx context.Context, n int) KeyStream {
 	stdinLock.Lock()
 
 	c := make(chan Key, n)
@@ -53,4 +55,46 @@ func StdinIntoStream(ctx context.Context, n int) <-chan Key {
 	}()
 
 	return c
+}
+
+// Waits until user presses the given `key` or the stream closes
+func (s KeyStream) WaitKey(key Key) {
+	for k := range s {
+		if k == key {
+			return
+		}
+	}
+}
+
+// Transforms the `KeyStream` so that it applies a function to
+// every key received.
+//
+// Note that this call gives up "ownership" of the `KeyStream`
+// and the returned `KeyStream` should be used instead
+func (s KeyStream) Map(f func(Key) Key) KeyStream {
+	newS := make(chan Key, cap(s))
+	go func() {
+		for k := range s {
+			newS <- f(k)
+		}
+		close(newS)
+	}()
+
+	return newS
+}
+
+// Transforms the `KeyStream` so that it triggers a handler
+// when `CtrlC` is pressed
+//
+// Note that this call gives up "ownership" of the `KeyStream`
+// and the returned `KeyStream` should be used instead
+func (s KeyStream) HandleCtrlC(handler func()) KeyStream {
+	return s.
+		Map(func(k Key) Key {
+			if k == KEY_CTRL_C {
+				handler()
+			}
+
+			return k
+		})
 }
