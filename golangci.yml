@@ -1,0 +1,21 @@
+run:
+  issues-exit-code: 1
+
+output:
+  formats: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters:
+  disable-all: true
+  enable:
+    - unused
+
+linters-settings:
+  unused:
+    field-writes-are-uses: false
+    post-statements-are-reads: true
+    exported-fields-are-used: false
+    parameters-are-used: true
+    local-variables-are-used: false
+    generated-is-used: false

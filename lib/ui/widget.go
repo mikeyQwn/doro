@@ -20,7 +20,7 @@ type TimedHandler func()
 // Returns widget "view" as a slice of lines and `shouldClose` boolean
 // Truthy `shouldClose` indicates that the widget is supposed to be done after the next update
 // Note that number of lines returned after every update should be the same
-type UpdateFn func(f *Formatter) ([]string, bool)
+type UpdateFn func(*Formatter) ([]string, bool)
 
 // A terminal widget
 // Note that widgets are not indended to run in parallel
@@ -81,8 +81,8 @@ func (w *Widget) WithWriter(writer io.Writer) *Widget {
 // Blocks until completion
 func (w *Widget) Run() error {
 	defer func() {
-		w.w.WriteString(ansi.CARRIAGE_RETURN + ansi.LINE_FEED)
-		w.w.Flush()
+		_, _ = w.w.WriteString(ansi.CARRIAGE_RETURN + ansi.LINE_FEED)
+		_ = w.w.Flush()
 	}()
 
 	if shouldExit, err := w.triggerUpdate(); shouldExit || err != nil {

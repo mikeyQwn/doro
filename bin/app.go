@@ -27,11 +27,11 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	defer restore()
+	defer func() { _ = restore() }()
 
 	ks := input.
 		StdinIntoStream(keyStreamCtx, keyStreamBuffsize).
-		HandleCtrlC(func() { restore(); os.Exit(0) })
+		HandleCtrlC(func() { _ = restore(); os.Exit(0) })
 
 	s := NewAppState(ks)
 

@@ -8,7 +8,7 @@ type Selector[T any] struct {
 // Initializes a selector with given values and initial value offset
 // Panics if values slice is empty or if offseted index is out of bounds
 func NewSelector[T any](values []T, offset int) *Selector[T] {
-	if values == nil || len(values) == 0 {
+	if len(values) == 0 {
 		panic("no values provided for the selector")
 	}
 

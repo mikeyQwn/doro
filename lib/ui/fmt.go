@@ -10,19 +10,19 @@ import (
 
 // Line formatting utilities
 type Formatter struct {
-	w, h int
+	w int
 }
 
 // Creates a new formatter for the current terminal
 // The formatter should be recreated after the terminal is resized
 func NewFormatter() (*Formatter, error) {
-	w, h, err := terminal.GetDimensions()
+	w, _, err := terminal.GetDimensions()
 	if err != nil {
 		return nil, err
 	}
 
 	return &Formatter{
-		w, h,
+		w,
 	}, nil
 }
 

@@ -49,7 +49,7 @@ func (t *Timer) Unpause() {
 		return
 	}
 
-	t.offs += time.Now().Sub(t.pausedAt)
+	t.offs += time.Since(t.pausedAt)
 	t.pausedAt = time.Time{}
 }
 
