@@ -5,24 +5,29 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/mikeyQwn/doro/lib/input"
 	"github.com/mikeyQwn/doro/lib/terminal"
 )
 
 // Widget event handlers
-type KeyHandler func(terminal.Key)
+type KeyHandler func(input.Key)
+type TimedHandler func()
 
 // `UpdateFn` is called when the widget is run and then after every event
-// Returns widget "view" as a slice of lines
-// Returning nil indicates that the widget should close
+// Returns widget "view" as a slice of lines and `shouldClose` boolean
+// Truthy `shouldClose` indicates that the widget is supposed to be done after the next update
 // Note that number of lines returned after every update should be the same
-type UpdateFn func(f *Formatter) []string
+type UpdateFn func(f *Formatter) ([]string, bool)
 
 // A terminal widget
 // Note that widgets are not indended to run in parallel
 type Widget struct {
-	keyStream    terminal.KeyStream
-	keyToHandler map[terminal.Key]KeyHandler
+	keyStream    input.KeyStream
+	keyToHandler map[input.Key]KeyHandler
+	ticker       *time.Ticker
+	timedHandler TimedHandler
 	update       UpdateFn
 	w            *bufio.Writer
 	n            int
@@ -34,25 +39,34 @@ func NewWidget(update UpdateFn) *Widget {
 		keyStream:    nil,
 		keyToHandler: nil,
 		update:       update,
+		ticker:       &time.Ticker{},
+		timedHandler: nil,
 		w:            bufio.NewWriter(os.Stdout),
 		n:            -1,
 	}
 }
 
 // Attaches `keySteam` to the widget, enabling key event handling
-func (w *Widget) EnableKeyHandling(keyStream terminal.KeyStream) *Widget {
+func (w *Widget) EnableKeyHandling(keyStream input.KeyStream) *Widget {
 	w.keyStream = keyStream
 	return w
 }
 
 // Adds a handler that is triggered when a key is pressed
-func (w *Widget) AddKeyHandler(handler KeyHandler, keys ...terminal.Key) *Widget {
+func (w *Widget) AddKeyHandler(handler KeyHandler, keys ...input.Key) *Widget {
 	if w.keyToHandler == nil {
-		w.keyToHandler = make(map[terminal.Key]KeyHandler, len(keys))
+		w.keyToHandler = make(map[input.Key]KeyHandler, len(keys))
 	}
 	for _, k := range keys {
 		w.keyToHandler[k] = handler
 	}
+	return w
+}
+
+// Adds a handler that fires periodically every `duration`
+func (w *Widget) AddTimedHandler(handler TimedHandler, duration time.Duration) *Widget {
+	w.ticker = time.NewTicker(duration)
+	w.timedHandler = handler
 	return w
 }
 
@@ -66,10 +80,8 @@ func (w *Widget) WithWriter(writer io.Writer) *Widget {
 // Blocks until completion
 func (w *Widget) Run() error {
 	defer func() {
-		if w.n != 1 {
-			w.w.WriteString(terminal.ESCAPE_CR_LF)
-			w.w.Flush()
-		}
+		w.w.WriteString(terminal.ESCAPE_CR_LF)
+		w.w.Flush()
 	}()
 
 	if shouldExit, err := w.triggerUpdate(); shouldExit || err != nil {
@@ -80,8 +92,14 @@ func (w *Widget) Run() error {
 }
 
 func (w *Widget) mainloop() error {
-	if w.keyStream != nil && w.keyToHandler != nil {
-		for key := range w.keyStream {
+	if (w.keyStream == nil || w.keyToHandler == nil) &&
+		(*w.ticker == time.Ticker{} || w.timedHandler == nil) {
+		return nil
+	}
+
+	for {
+		select {
+		case key := <-w.keyStream:
 			h, ok := w.keyToHandler[key]
 			if !ok {
 				continue
@@ -91,10 +109,13 @@ func (w *Widget) mainloop() error {
 			if shouldExit, err := w.triggerUpdate(); shouldExit || err != nil {
 				return err
 			}
+		case <-w.ticker.C:
+			w.timedHandler()
+			if shouldExit, err := w.triggerUpdate(); shouldExit || err != nil {
+				return err
+			}
 		}
 	}
-
-	return nil
 }
 
 func (w *Widget) triggerUpdate() (bool, error) {
@@ -103,7 +124,7 @@ func (w *Widget) triggerUpdate() (bool, error) {
 		return false, err
 	}
 
-	lines := w.update(fmt)
+	lines, shouldClose := w.update(fmt)
 	if lines == nil {
 		return true, nil
 	}
@@ -134,5 +155,5 @@ func (w *Widget) triggerUpdate() (bool, error) {
 		return false, err
 	}
 
-	return false, w.w.Flush()
+	return shouldClose, w.w.Flush()
 }

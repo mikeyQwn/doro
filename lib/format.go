@@ -19,3 +19,9 @@ func FormatDurationMinPrec(d time.Duration) string {
 
 	return strconv.Itoa(int(d.Seconds())) + "s"
 }
+
+// Converts float representation of percentage
+// To a string with a single decimal precision, e. g. 0.4512 -> 45.1%
+func FormatPercent(p float64) string {
+	return strconv.FormatFloat(p*100, 'f', 1, 64) + "%"
+}

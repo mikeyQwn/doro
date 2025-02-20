@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/mikeyQwn/doro/lib"
-	"github.com/mikeyQwn/doro/lib/terminal"
+	input "github.com/mikeyQwn/doro/lib/input"
+	tm "github.com/mikeyQwn/doro/lib/terminal"
+
 	"github.com/mikeyQwn/doro/lib/ui"
 )
 
@@ -19,46 +21,42 @@ func Run() {
 	keyStreamCtx := context.Background()
 
 	// Transform into raw mode and make sure to restore original state
-	restore := Unwrap(terminal.IntoRaw())
+	restore := Unwrap(tm.IntoRaw())
 	defer restore()
 	AddOnExit(func() { restore() })
 
-	ks := terminal.
+	ks := input.
 		StdinIntoStream(keyStreamCtx, keyStreamBuffsize).
 		HandleCtrlC(Exit)
 
 	s := NewAppState(ks)
 
-	widgets := make([]*ui.Widget, 0, 16)
-	widgets = append(widgets, s.InitMsg())
+	CheckErr(s.InitMsg().Run())
+	Unwrap(io.WriteString(s.wr, tm.DownLF(1)))
 
 	for _, widget := range s.ConfigSelectors() {
-		widgets = append(widgets, widget)
-	}
-	widgets = append(widgets, s.WaitForSpace())
-
-	for _, widget := range widgets {
 		CheckErr(widget.Run())
-		Unwrap(io.WriteString(s.wr, terminal.DownLF(1)))
+		Unwrap(io.WriteString(s.wr, tm.DownLF(1)))
 	}
 
-	stages := []func(){
-		s.RunPomodoros,
-	}
+	CheckErr(s.WaitForSpace().Run())
+	Unwrap(io.WriteString(s.wr, tm.DownLF(1)))
 
-	for _, stageFn := range stages {
-		stageFn()
-		CheckErr(s.w.Done())
+	for n := 1; ; n++ {
+		widget := s.CreatePomodoro(n)
+		CheckErr(widget.Run())
+		<-time.After(time.Second)
+		Unwrap(io.WriteString(s.wr, tm.DownLF(1)))
 	}
 }
 
 func (s *AppState) InitMsg() *ui.Widget {
-	return ui.NewWidget(func(f *ui.Formatter) []string {
+	return ui.NewWidget(func(f *ui.Formatter) ([]string, bool) {
 		return []string{
-			f.Center(terminal.Bold(titleHorizontalBorder)),
-			f.Center(terminal.Bold("|" + title + "|")),
-			f.Center(terminal.Bold(titleHorizontalBorder)),
-		}
+			f.C(tm.B(titleHorizontalBorder)),
+			f.C(tm.B("|" + title + "|")),
+			f.C(tm.B(titleHorizontalBorder)),
+		}, true
 	}).WithWriter(s.wr)
 }
 
@@ -78,108 +76,92 @@ func (s *AppState) ConfigSelector(selector ConfigSelector) *ui.Widget {
 	sel := selector.Selector
 	done := false
 
-	return ui.NewWidget(func(f *ui.Formatter) []string {
+	return s.NewWidget(func(f *ui.Formatter) ([]string, bool) {
 		val := sel.Curr()
 
 		if done {
 			*selector.ConfigRef = val
-			return nil
 		}
 
 		msg := fmt.Sprintf("< %s >", lib.FormatDurationMinPrec(val))
 
 		return []string{
-			f.Center(selector.Label),
-			f.Center(msg),
-		}
-	}).EnableKeyHandling(s.ks).
-		AddKeyHandler(func(k terminal.Key) { sel.Prev() }, terminal.KEY_ARROW_LEFT).
-		AddKeyHandler(func(k terminal.Key) { sel.Next() }, terminal.KEY_ARROW_RIGHT).
-		AddKeyHandler(func(k terminal.Key) { done = true }, terminal.KEY_ENTER)
+			f.C(selector.Label),
+			f.C(msg),
+		}, done
+	}).AddKeyHandler(func(k input.Key) { sel.Prev() }, input.KEY_ARROW_LEFT).
+		AddKeyHandler(func(k input.Key) { sel.Next() }, input.KEY_ARROW_RIGHT).
+		AddKeyHandler(func(k input.Key) { done = true }, input.KEY_ENTER)
 }
 
 func (s *AppState) WaitForSpace() *ui.Widget {
 	done := false
-	return ui.NewWidget(func(f *ui.Formatter) []string {
-		if done {
-			return nil
-		}
-
+	return s.NewWidget(func(f *ui.Formatter) ([]string, bool) {
 		return []string{
-			f.Center(pressSpaceToStartMsg),
-		}
-	}).EnableKeyHandling(s.ks).
-		AddKeyHandler(func(k terminal.Key) { done = true }, terminal.KEY_SPACE).
-		WithWriter(s.wr)
+			f.C(pressSpaceToStartMsg),
+		}, done
+	}).AddKeyHandler(func(k input.Key) { done = true }, input.KEY_SPACE)
 }
 
-func (s *AppState) RunPomodoros() {
-	s.w.WriteFmt(horizontalLineMsg, fmtCenteredCRLF)
+func (s *AppState) CreatePomodoro(n int) *ui.Widget {
+	done := false
+	addDot := false
+	pomodoroMsg := fmt.Sprintf(pomodoroMsgTemplate, n)
+	w := 16
 
-	for i := 1; ; i++ {
-		s.w.WriteFmt(fmt.Sprintf(pomodoroMsgTemplate, i), fmtCenteredCRLF)
+	labelA := focusedWorkLabel
+	completionA := formatProgressBar(0.0, uint(w), false)
+	durationA := s.cfg.breakDuration
+	timerA := lib.NewTimer(durationA)
 
-		if spawnTimer(s.ks, focusedWorkLabel, s.cfg.focusedWorkDuration) {
-			return
-		}
-
-		s.w.WriteString(terminal.Down(2)).
-			WriteString(terminal.ESCAPE_ERASE_RETURN)
-
-		if (i%4 != 0) && spawnTimer(s.ks, shortBreakLabel, s.cfg.breakDuration) {
-			return
-		}
-
-		if (i%4 == 0) && spawnTimer(s.ks, longBreakLabel, s.cfg.longBreakDuration) {
-			return
-		}
-
-		s.w.WriteString(terminal.Down(2)).
-			WriteString(terminal.ESCAPE_ERASE_RETURN)
+	labelB := shortBreakLabel
+	completionB := formatProgressBar(0.0, uint(w), false)
+	durationB := s.cfg.breakDuration
+	if n%4 == 0 {
+		labelB = longBreakLabel
+		durationB = s.cfg.longBreakDuration
 	}
-}
+	timerB := lib.NewPaused(durationB)
+	activeTimer := timerA
 
-func spawnTimer(keyStream <-chan terminal.Key, label string, total time.Duration) bool {
-	fmt.Print(strings.Repeat(terminal.ESCAPE_CR_LF, 2))
-	fmt.Println(fmtCenteredCRLF.Format("Press " + terminal.Bold("[space]") + " to pause"))
-	fmt.Print(terminal.Up(4))
-
-	start := time.Now()
-	addSpare := false
-	fmt.Print(formatProgress(label, total, start, addSpare))
-
-	for {
-		select {
-		case k := <-keyStream:
-			_ = k
-		case <-time.After(time.Second * 1):
-			if time.Now().Sub(start) > total {
-				fmt.Print(formatProgress(label, total, start, addSpare))
-				return false
-			}
-
-			addSpare = !addSpare
-			fmt.Print(formatProgress(label, total, start, addSpare))
+	return s.NewWidget(func(f *ui.Formatter) ([]string, bool) {
+		return []string{
+			f.C(pomodoroMsg),
+			"",
+			f.C(labelA + ": " + completionA + " " + lib.FormatPercent(timerA.Progress())),
+			"",
+			f.C(labelB + ": " + completionB + " " + lib.FormatPercent(timerB.Progress())),
+			"",
+			f.C("Press " + tm.B("[space]") + " to pause"),
+		}, done
+	}).AddTimedHandler(func() {
+		if activeTimer.IsPaused() {
+			return
 		}
-	}
+
+		addDot = !addDot
+		progressA := timerA.Progress()
+		if timerA.IsFinished() && timerB.IsPaused() && timerB.Elapsed() == 0 {
+			timerB.Unpause()
+			activeTimer = timerB
+		}
+
+		progressB := timerB.Progress()
+		if timerB.IsFinished() {
+			done = true
+			return
+		}
+
+		completionA = formatProgressBar(progressA, uint(w), !timerA.IsPaused() && addDot)
+		completionB = formatProgressBar(progressB, uint(w), !timerB.IsPaused() && addDot)
+	}, time.Second*1).AddKeyHandler(func(k input.Key) { activeTimer.Toggle() }, input.KEY_SPACE)
 }
 
-func formatProgress(label string, total time.Duration, start time.Time, addSpare bool) string {
-	totalMin := total.Minutes()
-	elapsedMin := time.Now().Sub(start).Minutes()
-	msg := fmt.Sprintf("%s: %s %d/%dm\r",
-		label,
-		formatProgressBar(elapsedMin/totalMin, 25, addSpare),
-		int(elapsedMin),
-		int(totalMin))
-	return fmtCentered.Format(msg)
-}
-
-func formatProgressBar(completion float64, width uint, addSpare bool) string {
+func formatProgressBar(completion float64, width uint, addDot bool) string {
 	completedLen := uint(float64(width) * completion)
 	spare := ""
 	missingLen := width - completedLen
-	if addSpare && completedLen < width {
+	if addDot && completedLen < width {
 		spare = "-"
 		missingLen -= 1
 	}

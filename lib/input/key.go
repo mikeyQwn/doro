@@ -1,4 +1,4 @@
-package terminal
+package input
 
 type Key uint32
 

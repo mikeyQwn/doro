@@ -23,14 +23,14 @@ const (
 	ESCAPE_CR_LF        = ESCAPE_CARRIAGE_RETURN + ESCAPE_LINE_FEED
 )
 
-// Wraps a string in ANSI escape that makes it Bold and resets afterwards
-func Bold(s string) string {
+// Wraps a string in ANSI escape that makes it bold and resets afterwards
+func B(s string) string {
 	return ESCAPE_BOLD + s + ESCAPE_RESET
 }
 
 // Pads spaces to the string to fit it in the center of the screen if it is able
 // Returns the initial string if can't get the size of the terminal
-func Center(s string) string {
+func C(s string) string {
 	w, _, err := GetDimensions()
 	if err != nil {
 		return s
@@ -146,10 +146,10 @@ func (f FormatBuilder) CRLF() FormatBuilder {
 // Returs a string, formatted with selected options
 func (f FormatBuilder) Format(s string) string {
 	if f.center {
-		s = Center(s)
+		s = C(s)
 	}
 	if f.bold {
-		s = Bold(s)
+		s = B(s)
 	}
 	if f.cr && f.lf {
 		s = CRLF(s)

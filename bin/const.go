@@ -24,7 +24,7 @@ const (
 var (
 	titleHorizontalBorder = fmt.Sprintf("+%s+", strings.Repeat("-", len(title)))
 
-	pressSpaceToStartMsg = "Press " + terminal.Bold("[space]") + " to start!\n"
+	pressSpaceToStartMsg = "Press " + terminal.B("[space]") + " to start!"
 	horizontalLineMsg    = "--------------\n"
 )
 

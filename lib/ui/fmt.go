@@ -25,8 +25,8 @@ func NewFormatter() (*Formatter, error) {
 	}, nil
 }
 
-// Does the same thing as as terminal.Center
-func (f *Formatter) Center(s string) string {
+// Does the same thing as as terminal.C
+func (f *Formatter) C(s string) string {
 	printableCount := countPrintable(s)
 	paddingLen := (f.w - printableCount) / 2
 	if paddingLen <= 0 {
