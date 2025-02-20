@@ -5,5 +5,7 @@ import (
 )
 
 func main() {
-	bin.Run()
+	if err := bin.Run(); err != nil {
+		bin.Fatal(err.Error())
+	}
 }

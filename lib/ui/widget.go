@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mikeyQwn/doro/lib/ansi"
 	"github.com/mikeyQwn/doro/lib/input"
 	"github.com/mikeyQwn/doro/lib/terminal"
 )
@@ -80,7 +81,7 @@ func (w *Widget) WithWriter(writer io.Writer) *Widget {
 // Blocks until completion
 func (w *Widget) Run() error {
 	defer func() {
-		w.w.WriteString(terminal.ESCAPE_CR_LF)
+		w.w.WriteString(ansi.CARRIAGE_RETURN + ansi.LINE_FEED)
 		w.w.Flush()
 	}()
 
@@ -146,12 +147,10 @@ func (w *Widget) triggerUpdate() (bool, error) {
 		}
 	}
 
-	if _, err = w.w.WriteString(strings.Join(lines,
-		terminal.ESCAPE_CR_LF+terminal.ESCAPE_ERASE_LINE)); err != nil {
-		return false, err
-	}
-
-	if _, err = w.w.WriteString(terminal.ESCAPE_CARRIAGE_RETURN); err != nil {
+	formattedWidget := strings.Join(lines,
+		ansi.CARRIAGE_RETURN+ansi.LINE_FEED+ansi.ERASE_LINE,
+	) + ansi.CARRIAGE_RETURN
+	if _, err = w.w.WriteString(formattedWidget); err != nil {
 		return false, err
 	}
 

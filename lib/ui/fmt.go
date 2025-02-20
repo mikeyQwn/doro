@@ -4,16 +4,17 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/mikeyQwn/doro/lib/ansi"
 	"github.com/mikeyQwn/doro/lib/terminal"
 )
 
-// Some formatting requires state that is persistent in a single
-// Update call, so this object eliviates unnecessary calls to
-// retreive that state
+// Line formatting utilities
 type Formatter struct {
 	w, h int
 }
 
+// Creates a new formatter for the current terminal
+// The formatter should be recreated after the terminal is resized
 func NewFormatter() (*Formatter, error) {
 	w, h, err := terminal.GetDimensions()
 	if err != nil {
@@ -25,7 +26,8 @@ func NewFormatter() (*Formatter, error) {
 	}, nil
 }
 
-// Does the same thing as as terminal.C
+// Pads spaces to the string to fit it in the center of the screen if it is able
+// Returns the initial string if can't get the size of the terminal
 func (f *Formatter) C(s string) string {
 	printableCount := countPrintable(s)
 	paddingLen := (f.w - printableCount) / 2
@@ -34,6 +36,16 @@ func (f *Formatter) C(s string) string {
 	}
 
 	return strings.Repeat(" ", paddingLen) + s
+}
+
+// Wraps a string in ANSI escape that makes it bold and resets afterwards
+func (f *Formatter) B(s string) string {
+	return B(s)
+}
+
+// Wraps a string in ANSI escape that makes it bold and resets afterwards
+func B(s string) string {
+	return ansi.BOLD + s + ansi.RESET
 }
 
 func countPrintable(s string) int {

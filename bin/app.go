@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/mikeyQwn/doro/lib"
+	"github.com/mikeyQwn/doro/lib/ansi"
 	input "github.com/mikeyQwn/doro/lib/input"
 	tm "github.com/mikeyQwn/doro/lib/terminal"
 
@@ -17,47 +18,64 @@ import (
 // Runs the pomodoro application
 // Tranforms terminal into raw mode, executes the app
 // Returns the terminal to it's original state before returning
-func Run() {
-	keyStreamCtx := context.Background()
+func Run() error {
+	keyStreamCtx, keyStreamCtxCancel := context.WithCancel(context.Background())
+	defer keyStreamCtxCancel()
 
 	// Transform into raw mode and make sure to restore original state
-	restore := Unwrap(tm.IntoRaw())
+	restore, err := tm.IntoRaw()
+	if err != nil {
+		return err
+	}
 	defer restore()
-	AddOnExit(func() { restore() })
 
 	ks := input.
 		StdinIntoStream(keyStreamCtx, keyStreamBuffsize).
-		HandleCtrlC(Exit)
+		HandleCtrlC(func() { restore(); os.Exit(0) })
 
 	s := NewAppState(ks)
 
-	CheckErr(s.InitMsg().Run())
-	Unwrap(io.WriteString(s.wr, tm.DownLF(1)))
-
-	for _, widget := range s.ConfigSelectors() {
-		CheckErr(widget.Run())
-		Unwrap(io.WriteString(s.wr, tm.DownLF(1)))
+	widgets := [][]*ui.Widget{
+		[]*ui.Widget{s.InitMsg()},
+		s.ConfigSelectors(),
+		[]*ui.Widget{s.WaitForSpace()},
 	}
 
-	CheckErr(s.WaitForSpace().Run())
-	Unwrap(io.WriteString(s.wr, tm.DownLF(1)))
+	// Execute initial setup and wait for space press
+	for _, widgetRow := range widgets {
+		for _, widget := range widgetRow {
+			if err := widget.Run(); err != nil {
+				return err
+			}
 
+			if _, err := io.WriteString(s.wr, tm.DownLF(1)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Run the pomodoro loop
 	for n := 1; ; n++ {
 		widget := s.CreatePomodoro(n)
-		CheckErr(widget.Run())
+		if err := widget.Run(); err != nil {
+			return err
+		}
 		<-time.After(time.Second)
-		Unwrap(io.WriteString(s.wr, tm.DownLF(1)))
+		if _, err := io.WriteString(s.wr, tm.Up(1)+ansi.ERASE_LINE); err != nil {
+			return err
+		}
 	}
 }
 
+// Prints the main title
 func (s *AppState) InitMsg() *ui.Widget {
-	return ui.NewWidget(func(f *ui.Formatter) ([]string, bool) {
+	return s.NewWidget(func(f *ui.Formatter) ([]string, bool) {
 		return []string{
-			f.C(tm.B(titleHorizontalBorder)),
-			f.C(tm.B("|" + title + "|")),
-			f.C(tm.B(titleHorizontalBorder)),
+			f.C(f.B(titleHorizontalBorder)),
+			f.C(f.B("| " + title + " |")),
+			f.C(f.B(titleHorizontalBorder)),
 		}, true
-	}).WithWriter(s.wr)
+	})
 }
 
 func (s *AppState) ConfigSelectors() []*ui.Widget {
@@ -72,89 +90,64 @@ func (s *AppState) ConfigSelectors() []*ui.Widget {
 	return widgets
 }
 
+// Selects a value for a particular config field
 func (s *AppState) ConfigSelector(selector ConfigSelector) *ui.Widget {
 	sel := selector.Selector
 	done := false
 
 	return s.NewWidget(func(f *ui.Formatter) ([]string, bool) {
-		val := sel.Curr()
-
-		if done {
-			*selector.ConfigRef = val
-		}
-
-		msg := fmt.Sprintf("< %s >", lib.FormatDurationMinPrec(val))
-
+		val := FormatDurationMinPrec(sel.Curr())
 		return []string{
 			f.C(selector.Label),
-			f.C(msg),
+			f.C("< " + f.B(val) + " >"),
 		}, done
 	}).AddKeyHandler(func(k input.Key) { sel.Prev() }, input.KEY_ARROW_LEFT).
 		AddKeyHandler(func(k input.Key) { sel.Next() }, input.KEY_ARROW_RIGHT).
-		AddKeyHandler(func(k input.Key) { done = true }, input.KEY_ENTER)
+		AddKeyHandler(func(k input.Key) { *selector.ConfigRef = sel.Curr(); done = true }, input.KEY_ENTER)
 }
 
+// Prints a hint and waits until space is pressed
 func (s *AppState) WaitForSpace() *ui.Widget {
 	done := false
 	return s.NewWidget(func(f *ui.Formatter) ([]string, bool) {
 		return []string{
-			f.C(pressSpaceToStartMsg),
+			f.C("Press " + f.B("[space]") + " to start!"),
 		}, done
 	}).AddKeyHandler(func(k input.Key) { done = true }, input.KEY_SPACE)
 }
 
 func (s *AppState) CreatePomodoro(n int) *ui.Widget {
-	done := false
 	addDot := false
+
+	isLong := n%4 == 0
+	pd := NewPomodoro(&s.cfg, isLong)
+
 	pomodoroMsg := fmt.Sprintf(pomodoroMsgTemplate, n)
-	w := 16
 
-	labelA := focusedWorkLabel
-	completionA := formatProgressBar(0.0, uint(w), false)
-	durationA := s.cfg.breakDuration
-	timerA := lib.NewTimer(durationA)
-
-	labelB := shortBreakLabel
-	completionB := formatProgressBar(0.0, uint(w), false)
-	durationB := s.cfg.breakDuration
-	if n%4 == 0 {
-		labelB = longBreakLabel
-		durationB = s.cfg.longBreakDuration
-	}
-	timerB := lib.NewPaused(durationB)
-	activeTimer := timerA
+	workCompletion := formatProgressBar(0.0, progressBarWidth, false)
+	breakCompletion := formatProgressBar(0.0, progressBarWidth, false)
 
 	return s.NewWidget(func(f *ui.Formatter) ([]string, bool) {
+		workCompletion = formatProgressBar(pd.WorkProgress(), progressBarWidth, pd.WorkRunning() && addDot)
+		breakCompletion = formatProgressBar(pd.BreakProgress(), progressBarWidth, pd.BreakRunning() && addDot)
+
 		return []string{
 			f.C(pomodoroMsg),
 			"",
-			f.C(labelA + ": " + completionA + " " + lib.FormatPercent(timerA.Progress())),
+			f.C(pd.WorkLabel() + ": " + workCompletion + " " + FormatPercent(pd.WorkProgress())),
 			"",
-			f.C(labelB + ": " + completionB + " " + lib.FormatPercent(timerB.Progress())),
+			f.C(pd.BreakLabel() + ": " + breakCompletion + " " + FormatPercent(pd.BreakProgress())),
 			"",
-			f.C("Press " + tm.B("[space]") + " to pause"),
-		}, done
+			f.C("Press " + f.B("[space]") + " to pause"),
+		}, pd.IsFinished()
 	}).AddTimedHandler(func() {
-		if activeTimer.IsPaused() {
+		if pd.IsPaused() {
 			return
 		}
-
 		addDot = !addDot
-		progressA := timerA.Progress()
-		if timerA.IsFinished() && timerB.IsPaused() && timerB.Elapsed() == 0 {
-			timerB.Unpause()
-			activeTimer = timerB
-		}
+		pd.Update()
 
-		progressB := timerB.Progress()
-		if timerB.IsFinished() {
-			done = true
-			return
-		}
-
-		completionA = formatProgressBar(progressA, uint(w), !timerA.IsPaused() && addDot)
-		completionB = formatProgressBar(progressB, uint(w), !timerB.IsPaused() && addDot)
-	}, time.Second*1).AddKeyHandler(func(k input.Key) { activeTimer.Toggle() }, input.KEY_SPACE)
+	}, time.Second*1).AddKeyHandler(func(k input.Key) { pd.TogglePause() }, input.KEY_SPACE)
 }
 
 func formatProgressBar(completion float64, width uint, addDot bool) string {

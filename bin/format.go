@@ -1,6 +1,6 @@
 // Time formatting functions
 
-package lib
+package bin
 
 import (
 	"strconv"

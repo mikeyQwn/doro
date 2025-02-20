@@ -6,11 +6,10 @@ import (
 	"time"
 
 	"github.com/mikeyQwn/doro/lib"
-	"github.com/mikeyQwn/doro/lib/terminal"
 )
 
 const (
-	title                  = " Doro the pomodoro timer "
+	title                  = "Doro the pomodoro timer"
 	focusedDurationLabel   = "Select focused work duration"
 	focusedWorkLabel       = "Focused work"
 	breakDurationLabel     = "Select break duration"
@@ -22,10 +21,7 @@ const (
 )
 
 var (
-	titleHorizontalBorder = fmt.Sprintf("+%s+", strings.Repeat("-", len(title)))
-
-	pressSpaceToStartMsg = "Press " + terminal.B("[space]") + " to start!"
-	horizontalLineMsg    = "--------------\n"
+	titleHorizontalBorder = fmt.Sprintf("+%s+", strings.Repeat("-", len(title)+2))
 )
 
 var durations = []time.Duration{
@@ -55,14 +51,7 @@ var (
 	longBreakDurationSelector = lib.NewSelector(durations, longBreakDurationOffs)
 )
 
-var (
-	fmtDefault          = terminal.NewFormatBuilder()
-	fmtCRLF             = fmtDefault.CRLF()
-	fmtCentered         = fmtDefault.Center()
-	fmtCenteredCRLF     = fmtCentered.CRLF()
-	fmtBoldCenteredCRLF = fmtCenteredCRLF.Bold()
-)
-
-var (
+const (
 	keyStreamBuffsize = 16
+	progressBarWidth  = uint(16)
 )

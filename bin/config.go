@@ -14,7 +14,7 @@ type ConfigSelector struct {
 
 type Config struct {
 	focusedWorkDuration time.Duration
-	breakDuration       time.Duration
+	shortBreakDuration  time.Duration
 	longBreakDuration   time.Duration
 }
 
@@ -28,7 +28,7 @@ func (c *Config) GetMissingSelectors() []ConfigSelector {
 		ConfigSelector{
 			Label:     breakDurationLabel,
 			Selector:  breakDurationSelector,
-			ConfigRef: &c.breakDuration,
+			ConfigRef: &c.shortBreakDuration,
 		},
 		ConfigSelector{
 			Label:     longBreakDurationLabel,
