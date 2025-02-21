@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	currentVersion         = "v0.0.1"
 	title                  = "Doro the pomodoro timer"
 	focusedDurationLabel   = "Select focused work duration"
 	focusedWorkLabel       = "Focused work"
@@ -41,11 +42,11 @@ var durations = []time.Duration{
 }
 
 var (
-	focusedDurationOffs     = 8
-	focusedDurationSelector = lib.NewSelector(durations, focusedDurationOffs)
+	focusedWorkDurationOffs     = 8
+	focusedWorkDurationSelector = lib.NewSelector(durations, focusedWorkDurationOffs)
 
-	breakDurationOffs     = 4
-	breakDurationSelector = lib.NewSelector(durations, breakDurationOffs)
+	shortBreakDurationOffs     = 4
+	shortBreakDurationSelector = lib.NewSelector(durations, shortBreakDurationOffs)
 
 	longBreakDurationOffs     = 9
 	longBreakDurationSelector = lib.NewSelector(durations, longBreakDurationOffs)

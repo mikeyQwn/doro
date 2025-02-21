@@ -11,14 +11,14 @@ import (
 type AppState struct {
 	wr  io.Writer
 	ks  input.KeyStream
-	cfg Config
+	cfg *Config
 }
 
-func NewAppState(ks input.KeyStream) *AppState {
+func NewAppState(ks input.KeyStream, cfg *Config) *AppState {
 	return &AppState{
 		wr:  os.Stdout,
 		ks:  ks,
-		cfg: Config{},
+		cfg: cfg,
 	}
 }
 

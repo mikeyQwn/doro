@@ -19,6 +19,12 @@ import (
 // Tranforms terminal into raw mode, executes the app
 // Returns the terminal to it's original state before returning
 func Run() error {
+	cfg := ParseConfig()
+	if cfg.printVersion {
+		fmt.Println(os.Args[0], currentVersion)
+		return nil
+	}
+
 	keyStreamCtx, keyStreamCtxCancel := context.WithCancel(context.Background())
 	defer keyStreamCtxCancel()
 
@@ -33,7 +39,7 @@ func Run() error {
 		StdinIntoStream(keyStreamCtx, keyStreamBuffsize).
 		HandleCtrlC(func() { _ = restore(); os.Exit(0) })
 
-	s := NewAppState(ks)
+	s := NewAppState(ks, cfg)
 
 	widgets := [][]*ui.Widget{
 		[]*ui.Widget{s.InitMsg()},
@@ -120,7 +126,7 @@ func (s *AppState) CreatePomodoro(n int) *ui.Widget {
 	addDot := false
 
 	isLong := n%4 == 0
-	pd := NewPomodoro(&s.cfg, isLong)
+	pd := NewPomodoro(s.cfg, isLong)
 
 	pomodoroMsg := fmt.Sprintf(pomodoroMsgTemplate, n)
 
