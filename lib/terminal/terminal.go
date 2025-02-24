@@ -11,6 +11,8 @@ import (
 	"golang.org/x/term"
 )
 
+// A function that restores the temrinal to it's former state
+// Shoud be called after tranforming the terminal to raw mode
 type TerminalRestoreFunc func() error
 
 // Puts the terminal into raw mode and returns a function that restores

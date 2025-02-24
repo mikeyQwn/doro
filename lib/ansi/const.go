@@ -2,6 +2,7 @@
 
 package ansi
 
+// A list of ANSI escape codes ready to use in strings
 const (
 	RESET         = "\033[0m"
 	BOLD          = "\033[1m"

@@ -10,7 +10,7 @@ type Timer struct {
 	pausedAt time.Time
 }
 
-// Create a new `Timer` and starts it
+// Creates a new `Timer` and starts it
 func NewTimer(duration time.Duration) *Timer {
 	return &Timer{
 		start:    time.Now(),
@@ -21,6 +21,7 @@ func NewTimer(duration time.Duration) *Timer {
 	}
 }
 
+// Creates a new `Timer`, but does not start it
 func NewPaused(duration time.Duration) *Timer {
 	t := NewTimer(duration)
 	t.pausedAt = t.start
@@ -28,6 +29,9 @@ func NewPaused(duration time.Duration) *Timer {
 	return t
 }
 
+// Pauses the timer. Time spent between the `Pause()`
+// and `Unpause()` calls does not go towards reaching
+// timer's duration
 func (t *Timer) Pause() {
 	if t.IsPaused() {
 		return
@@ -36,14 +40,7 @@ func (t *Timer) Pause() {
 	t.pausedAt = time.Now()
 }
 
-func (t *Timer) Toggle() {
-	if t.IsPaused() {
-		t.Unpause()
-	} else {
-		t.Pause()
-	}
-}
-
+// Unpauses the timer
 func (t *Timer) Unpause() {
 	if !t.IsPaused() {
 		return
@@ -53,10 +50,23 @@ func (t *Timer) Unpause() {
 	t.pausedAt = time.Time{}
 }
 
+// Pauses a timer if it's unpaused or unpauses it
+// if it's paused
+func (t *Timer) Toggle() {
+	if t.IsPaused() {
+		t.Unpause()
+	} else {
+		t.Pause()
+	}
+}
+
+// Returns `true` if the timer is paused
 func (t *Timer) IsPaused() bool {
 	return (t.pausedAt != time.Time{})
 }
 
+// Returns a float value in range [0.0, 1.0] that shows
+// what percentage of timer's duration passed
 func (t *Timer) Progress() float64 {
 	elapsed := t.Elapsed()
 	progress := float64(elapsed) / float64(t.duration)
@@ -67,6 +77,7 @@ func (t *Timer) Progress() float64 {
 	return progress
 }
 
+// Returns wether or not the timer is finished (e.g. reached it's duration)
 func (t *Timer) IsFinished() bool {
 	return t.Elapsed() >= t.duration
 }

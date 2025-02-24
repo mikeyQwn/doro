@@ -1,7 +1,9 @@
 package input
 
+// A `Key` represents a single keypress
 type Key uint32
 
+// A list of keys required for Doro to work
 const (
 	KEY_UNKNOWN     Key = 0
 	KEY_ARROW_LEFT  Key = (27 << 0) + (91 << 8) + (68 << 16)
