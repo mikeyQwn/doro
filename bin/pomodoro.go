@@ -1,6 +1,10 @@
 package bin
 
-import "github.com/mikeyQwn/doro/lib"
+import (
+	"time"
+
+	"github.com/mikeyQwn/doro/lib"
+)
 
 type Task struct {
 	label string
@@ -45,6 +49,14 @@ func (p *Pomodoro) WorkRunning() bool {
 	return !p.workTask.timer.IsPaused() && p.workTask.timer.Elapsed() != 0
 }
 
+func (p *Pomodoro) WorkElapsed() time.Duration {
+	return p.workTask.timer.Elapsed()
+}
+
+func (p *Pomodoro) WorkDuration() time.Duration {
+	return p.workTask.timer.Duratoin()
+}
+
 func (p *Pomodoro) BreakLabel() string {
 	return p.breakTask.label
 }
@@ -55,6 +67,14 @@ func (p *Pomodoro) BreakProgress() float64 {
 
 func (p *Pomodoro) BreakRunning() bool {
 	return !p.breakTask.timer.IsPaused() && p.breakTask.timer.Elapsed() != 0
+}
+
+func (p *Pomodoro) BreakElapsed() time.Duration {
+	return p.breakTask.timer.Elapsed()
+}
+
+func (p *Pomodoro) BreakDuration() time.Duration {
+	return p.breakTask.timer.Duratoin()
 }
 
 func (p *Pomodoro) Active() *Task {
@@ -86,7 +106,7 @@ func (p *Pomodoro) Update() {
 func (p *Pomodoro) IsPaused() bool {
 	task := p.Active()
 	if task == nil {
-		return true
+		return false
 	}
 
 	return task.timer.IsPaused()

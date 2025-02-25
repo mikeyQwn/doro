@@ -147,7 +147,7 @@ func (w *Widget) triggerUpdate() (bool, error) {
 		}
 	}
 
-	formattedWidget := strings.Join(lines,
+	formattedWidget := ansi.ERASE_LINE + strings.Join(lines,
 		ansi.CARRIAGE_RETURN+ansi.LINE_FEED+ansi.ERASE_LINE,
 	) + ansi.CARRIAGE_RETURN
 	if _, err = w.w.WriteString(formattedWidget); err != nil {

@@ -137,14 +137,28 @@ func (s *AppState) CreatePomodoro(n int) *ui.Widget {
 		workCompletion = formatProgressBar(pd.WorkProgress(), progressBarWidth, pd.WorkRunning() && addDot)
 		breakCompletion = formatProgressBar(pd.BreakProgress(), progressBarWidth, pd.BreakRunning() && addDot)
 
+		workTimer := FormatTimer(pd.WorkElapsed(), pd.WorkDuration())
+		breakTimer := FormatTimer(pd.BreakElapsed(), pd.BreakDuration())
+
+		title := pomodoroMsg
+
+		isPaused := pd.IsPaused()
+		pauseMsg := "Press " + f.B("[space]") + " "
+		if isPaused {
+			title += " " + f.B("[PAUSED]")
+			pauseMsg += "to unpause"
+		} else {
+			pauseMsg += "to pause"
+		}
+
 		return []string{
-			f.C(pomodoroMsg),
+			f.C(title),
 			"",
-			f.C(pd.WorkLabel() + ": " + workCompletion + " " + FormatPercent(pd.WorkProgress())),
+			f.C(fmt.Sprintf("%s: %s %s (%s)", pd.WorkLabel(), workCompletion, workTimer, FormatPercent(pd.WorkProgress()))),
 			"",
-			f.C(pd.BreakLabel() + ": " + breakCompletion + " " + FormatPercent(pd.BreakProgress())),
+			f.C(fmt.Sprintf("%s: %s %s (%s)", pd.BreakLabel(), breakCompletion, breakTimer, FormatPercent(pd.BreakProgress()))),
 			"",
-			f.C("Press " + f.B("[space]") + " to pause"),
+			f.C(pauseMsg),
 		}, pd.IsFinished()
 	}).AddTimedHandler(func() {
 		if pd.IsPaused() {

@@ -25,3 +25,7 @@ func FormatDurationMinPrec(d time.Duration) string {
 func FormatPercent(p float64) string {
 	return strconv.FormatFloat(p*100, 'f', 1, 64) + "%"
 }
+
+func FormatTimer(elapsed, total time.Duration) string {
+	return strconv.Itoa(int(elapsed.Minutes())) + "/" + strconv.Itoa(int(total.Minutes())) + "m"
+}

@@ -10,7 +10,7 @@ type Timer struct {
 	pausedAt time.Time
 }
 
-// Creates a new `Timer` and starts it
+// Creates a new `Timer` with a given duration and starts it
 func NewTimer(duration time.Duration) *Timer {
 	return &Timer{
 		start:    time.Now(),
@@ -21,7 +21,7 @@ func NewTimer(duration time.Duration) *Timer {
 	}
 }
 
-// Creates a new `Timer`, but does not start it
+// Creates a new `Timer` with a given duration, but does not start it
 func NewPaused(duration time.Duration) *Timer {
 	t := NewTimer(duration)
 	t.pausedAt = t.start
@@ -91,4 +91,9 @@ func (t *Timer) Elapsed() time.Duration {
 	}
 
 	return elapsed
+}
+
+// Returns total timer duration
+func (t *Timer) Duratoin() time.Duration {
+	return t.duration
 }
