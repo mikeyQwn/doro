@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/mikeyQwn/doro/lib/ansi"
@@ -42,9 +41,9 @@ func Run() error {
 	s := NewAppState(ks, cfg)
 
 	widgets := [][]*ui.Widget{
-		[]*ui.Widget{s.InitMsg()},
+		{s.InitMsg()},
 		s.ConfigSelectors(),
-		[]*ui.Widget{s.WaitForSpace()},
+		{s.WaitForSpace()},
 	}
 
 	// Execute initial setup and wait for space press
@@ -66,8 +65,9 @@ func Run() error {
 		if err := widget.Run(); err != nil {
 			return err
 		}
+
 		<-time.After(time.Second)
-		if _, err := io.WriteString(s.wr, tm.Up(1)+ansi.ERASE_LINE); err != nil {
+		if _, err := io.WriteString(s.wr, tm.Up(3)+ansi.ERASE_LINE); err != nil {
 			return err
 		}
 	}
@@ -151,6 +151,8 @@ func (s *AppState) CreatePomodoro(n int) *ui.Widget {
 			pauseMsg += "to pause"
 		}
 
+		skipMsg := "Press " + f.B("[s]") + " to skip the current session"
+
 		return []string{
 			f.C(title),
 			"",
@@ -159,6 +161,8 @@ func (s *AppState) CreatePomodoro(n int) *ui.Widget {
 			f.C(fmt.Sprintf("%s: %s %s (%s)", pd.BreakLabel(), breakCompletion, breakTimer, FormatPercent(pd.BreakProgress()))),
 			"",
 			f.C(pauseMsg),
+			"",
+			f.C(skipMsg),
 		}, pd.IsFinished()
 	}).AddTimedHandler(func() {
 		if pd.IsPaused() {
@@ -167,18 +171,26 @@ func (s *AppState) CreatePomodoro(n int) *ui.Widget {
 		addDot = !addDot
 		pd.Update()
 
-	}, time.Second*1).AddKeyHandler(func(k input.Key) { pd.TogglePause() }, input.KEY_SPACE)
+	}, time.Second*1).
+		AddKeyHandler(func(k input.Key) { pd.TogglePause() }, input.KEY_SPACE).
+		AddKeyHandler(func(k input.Key) { pd.TogglePause(); pd.NextTask() }, input.KEY_S)
 }
 
 func formatProgressBar(completion float64, width uint, addDot bool) string {
+	bar := make([]byte, width+2)
+	bar[0] = '['
+	bar[len(bar)-1] = ']'
 	completedLen := uint(float64(width) * completion)
-	spare := ""
-	missingLen := width - completedLen
-	if addDot && completedLen < width {
-		spare = "-"
-		missingLen -= 1
+	for i := range width {
+		if i < completedLen {
+			bar[1+i] = '='
+		} else {
+			bar[1+i] = ' '
+		}
 	}
-	completed := strings.Repeat("=", int(completedLen))
-	missing := strings.Repeat(" ", int(missingLen))
-	return "[" + completed + spare + missing + "]"
+	if addDot && completedLen < width {
+		bar[1+completedLen] = '-'
+	}
+
+	return string(bar)
 }

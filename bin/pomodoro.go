@@ -97,10 +97,8 @@ func (p *Pomodoro) Update() {
 	if !task.timer.IsFinished() {
 		return
 	}
-	p.activeIdx += 1
-	if task := p.Active(); task != nil {
-		task.timer.Unpause()
-	}
+
+	p.NextTask()
 }
 
 func (p *Pomodoro) IsPaused() bool {
@@ -119,6 +117,13 @@ func (p *Pomodoro) TogglePause() {
 	}
 
 	task.timer.Toggle()
+}
+
+func (p *Pomodoro) NextTask() {
+	p.activeIdx += 1
+	if task := p.Active(); task != nil {
+		task.timer.Unpause()
+	}
 }
 
 func (p *Pomodoro) IsFinished() bool {

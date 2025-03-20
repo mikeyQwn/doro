@@ -8,15 +8,15 @@ sessions.
 
 ## Installation
 
--   Clone the repository:
+- Clone the repository:
 
 `git clone github.com/mikeyQwn/doro`
 
--   Build and install the application:
+- Build and install the application:
 
 `go install ./cmd/doro`
 
--   Verify the installation by running:
+- Verify the installation by running:
 
 `doro -v`
 
@@ -28,10 +28,10 @@ To run Doro, use the following command:
 
 ### Flags
 
--   -w: Duration of the work session in minutes (default: 25)
--   -s: Duration of the short break session in minutes (default: 5)
--   -l: Duration of the long break session in minutes (default: 30)
--   -h: Display help information
+- -w: Duration of the work session in minutes (default: 25)
+- -s: Duration of the short break session in minutes (default: 5)
+- -l: Duration of the long break session in minutes (default: 30)
+- -h: Display help information
 
 ### Examples
 
@@ -45,10 +45,10 @@ To run Doro, use the following command:
 
 ### Notes
 
--   The timer will automatically alternate between work and break sessions until
-    you manually stop it (e.g., by pressing `Ctrl+C` )
+- The timer will automatically alternate between work and break sessions until
+  you manually stop it (e.g., by pressing `Ctrl+C` )
 
--   You can pause the timer at any time by pressinng `Space`
+- You can pause the timer at any time by pressinng `Space`
 
 ## Contributing
 
