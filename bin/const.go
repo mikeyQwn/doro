@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	currentVersion         = "v0.0.1"
+	currentVersion         = "v0.0.2"
 	title                  = "Doro the pomodoro timer"
 	focusedDurationLabel   = "Select focused work duration"
 	focusedWorkLabel       = "Focused work"

@@ -70,9 +70,7 @@ func (t *Timer) IsPaused() bool {
 func (t *Timer) Progress() float64 {
 	elapsed := t.Elapsed()
 	progress := float64(elapsed) / float64(t.duration)
-	if progress > 1.0 {
-		progress = 1.0
-	}
+	progress = min(1.0, progress)
 
 	return progress
 }
@@ -90,7 +88,7 @@ func (t *Timer) Elapsed() time.Duration {
 		elapsed -= now.Sub(t.pausedAt)
 	}
 
-	return elapsed
+	return max(elapsed, t.duration)
 }
 
 // Returns total timer duration
