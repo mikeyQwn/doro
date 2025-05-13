@@ -88,7 +88,7 @@ func (t *Timer) Elapsed() time.Duration {
 		elapsed -= now.Sub(t.pausedAt)
 	}
 
-	return max(elapsed, t.duration)
+	return min(elapsed, t.duration)
 }
 
 // Returns total timer duration

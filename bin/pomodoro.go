@@ -12,9 +12,10 @@ type Task struct {
 }
 
 type Pomodoro struct {
-	workTask  Task
-	breakTask Task
-	activeIdx int
+	workTask           Task
+	breakTask          Task
+	activeIdx          int
+	taskFinishCallback func()
 }
 
 func NewPomodoro(cfg *Config, isLong bool) *Pomodoro {
@@ -35,6 +36,11 @@ func NewPomodoro(cfg *Config, isLong bool) *Pomodoro {
 	}
 
 	return pm
+}
+
+func (p *Pomodoro) WithTaskFinishCallback(callback func()) *Pomodoro {
+	p.taskFinishCallback = callback
+	return p
 }
 
 func (p *Pomodoro) WorkLabel() string {
@@ -120,6 +126,10 @@ func (p *Pomodoro) TogglePause() {
 }
 
 func (p *Pomodoro) NextTask() {
+	if p.taskFinishCallback != nil {
+		p.taskFinishCallback()
+	}
+
 	p.activeIdx += 1
 	if task := p.Active(); task != nil {
 		task.timer.Unpause()

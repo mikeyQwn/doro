@@ -1,12 +1,18 @@
 package bin
 
 import (
+	_ "embed"
 	"fmt"
 	"strings"
 	"time"
 
+	_ "embed"
+
 	"github.com/mikeyQwn/doro/lib"
 )
+
+//go:embed res/bell.wav
+var bellSoundBytes []byte
 
 const (
 	currentVersion         = "v0.0.2"

@@ -3,22 +3,28 @@ package bin
 import (
 	"io"
 	"os"
+	"sync"
 
+	"github.com/faiface/beep"
 	"github.com/mikeyQwn/doro/lib/input"
 	"github.com/mikeyQwn/doro/lib/ui"
 )
 
 type AppState struct {
-	wr  io.Writer
-	ks  input.KeyStream
-	cfg *Config
+	wr            io.Writer
+	ks            input.KeyStream
+	streamer      beep.StreamSeekCloser
+	isPlaying     bool
+	isPlayingLock sync.Mutex
+	cfg           *Config
 }
 
-func NewAppState(ks input.KeyStream, cfg *Config) *AppState {
+func NewAppState(ks input.KeyStream, streamer beep.StreamSeekCloser, cfg *Config) *AppState {
 	return &AppState{
-		wr:  os.Stdout,
-		ks:  ks,
-		cfg: cfg,
+		wr:       os.Stdout,
+		ks:       ks,
+		streamer: streamer,
+		cfg:      cfg,
 	}
 }
 

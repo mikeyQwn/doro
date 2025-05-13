@@ -1,12 +1,16 @@
 package bin
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"time"
 
+	"github.com/faiface/beep"
+	"github.com/faiface/beep/speaker"
+	"github.com/faiface/beep/wav"
 	"github.com/mikeyQwn/doro/lib/ansi"
 	input "github.com/mikeyQwn/doro/lib/input"
 	tm "github.com/mikeyQwn/doro/lib/terminal"
@@ -38,7 +42,16 @@ func Run() error {
 		StdinIntoStream(keyStreamCtx, keyStreamBuffsize).
 		HandleCtrlC(func() { _ = restore(); os.Exit(0) })
 
-	s := NewAppState(ks, cfg)
+	streamer, format, err := wav.Decode(bytes.NewReader(bellSoundBytes))
+	if err != nil {
+		return err
+	}
+
+	if err := speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10)); err != nil {
+		return err
+	}
+
+	s := NewAppState(ks, streamer, cfg)
 
 	widgets := [][]*ui.Widget{
 		{s.InitMsg()},
@@ -119,14 +132,19 @@ func (s *AppState) WaitForSpace() *ui.Widget {
 		return []string{
 			f.C("Press " + f.B("[space]") + " to start!"),
 		}, done
-	}).AddKeyHandler(func(k input.Key) { done = true }, input.KEY_SPACE)
+	}).AddKeyHandler(func(k input.Key) {
+		s.playBeep()
+		done = true
+	}, input.KEY_SPACE)
 }
 
 func (s *AppState) CreatePomodoro(n int) *ui.Widget {
 	addDot := false
 
 	isLong := n%4 == 0
-	pd := NewPomodoro(s.cfg, isLong)
+	pd := NewPomodoro(s.cfg, isLong).WithTaskFinishCallback(func() {
+		s.playBeep()
+	})
 
 	pomodoroMsg := fmt.Sprintf(pomodoroMsgTemplate, n)
 
@@ -174,6 +192,22 @@ func (s *AppState) CreatePomodoro(n int) *ui.Widget {
 	}, time.Second*1).
 		AddKeyHandler(func(k input.Key) { pd.TogglePause() }, input.KEY_SPACE).
 		AddKeyHandler(func(k input.Key) { pd.TogglePause(); pd.NextTask() }, input.KEY_S)
+}
+
+func (s *AppState) playBeep() {
+	s.isPlayingLock.Lock()
+	defer s.isPlayingLock.Unlock()
+	if s.isPlaying {
+		return
+	}
+
+	s.isPlaying = true
+	_ = s.streamer.Seek(0)
+	speaker.Play(beep.Seq(s.streamer, beep.Callback(func() {
+		s.isPlayingLock.Lock()
+		s.isPlaying = false
+		defer s.isPlayingLock.Unlock()
+	})))
 }
 
 func formatProgressBar(completion float64, width uint, addDot bool) string {
